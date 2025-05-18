@@ -1,8 +1,10 @@
 from typing import List
+import re
 import urllib.parse as urlparse
+import requests
 import typer
 from typing_extensions import Annotated
-import requests
+from prettytable import PrettyTable 
 from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
 
@@ -127,17 +129,89 @@ personById = """
     }
 """
 
-def searchByName(name):
+def searchByName(name, search, personOrTitle=''):
     response = requests.get(searchApiUrl(name))
     if response.status_code != 200:
         raise Exception(f"Error: {response.status_code}")
-    data = response.json()
+    data_json = response.json()
+    if "d" not in data_json:
+        raise Exception("Error: No data found")
+    data = data_json["d"]
+    if len(data) == 0:
+        raise Exception("Error: No data found")
     
-    for item in data["d"]:
-        print("id: ", item["id"])
-        print("name: ", item["l"])
-        print("summary: ", item["s"])
-        print("---------------------")
+    table = PrettyTable(["id", "name", "summary"])
+    table.add_autoindex()
+    foundExactMatch = 0
+    data_excactMatch = []
+    
+    for index, item in enumerate(data):
+        item_id = item.setdefault("id", "")
+        item_name = item.setdefault("l", "")
+        item_summary = item.setdefault("s", "")
+        
+        table.add_row([index, item_id, name, item_summary])
+        if not search:
+            if item_id.startswith(personOrTitle) and item_name.lower() == name.lower():
+                foundExactMatch += 1
+                data_excactMatch.append(item)
+                # return item_id
+                
+    if foundExactMatch > 0:
+        print("if you want to search and get all search candidates, please use -s option")
+        if len(data_excactMatch) == 1:
+            # Get the id of the selected item
+            selectedItem = data_excactMatch[0]
+            selectedId = selectedItem["id"]
+            print("Found excact match: ", item_name)
+            return selectedId
+        else:
+            # Print the table
+            print("Found multiple exact matches:")
+            table = PrettyTable(["id", "name", "summary"])
+            table.add_autoindex()
+            for index, item in enumerate(data_excactMatch):
+                item_id = item.setdefault("id", "")
+                item_name = item.setdefault("l", "")
+                item_summary = item.setdefault("s", "")
+                
+                table.add_row([index, item_id, name, item_summary])
+        
+    print(table)
+    
+    searchIndex = typer.prompt("Enter index of what you searching? (nothing to cancel)", default=-1, type=int)
+    if searchIndex == -1:
+        print("Cancelled")
+        return
+    
+    if foundExactMatch > 0 and (searchIndex < 0 or searchIndex >= len(data_excactMatch)):
+        print("Invalid index")
+        return
+    elif searchIndex < 0 or searchIndex >= len(data):
+        print("Invalid index")
+        return
+    
+    # Get the id of the selected item
+    selectedItem = []
+    if foundExactMatch > 0:
+        # Get the id of the selected item
+        selectedItem = data_excactMatch[searchIndex]
+    else:
+        # Get the id of the selected item
+        selectedItem = data[searchIndex]
+    selectedId = selectedItem["id"]
+    return selectedId
+
+def getTitleOrPerson(id):
+    # if id has "tt" prefix, it is a title
+    if id.startswith("tt"):
+        # Get the title details
+        getTitle(id)
+    # if id has "nm" prefix, it is a person
+    elif id.startswith("nm"):
+        # Get the person details
+        getPerson(id)
+    
 
 # @app.command()
 def getTitle(id):
@@ -145,7 +219,7 @@ def getTitle(id):
     query = gql(titleById)
 
     # Execute the query on the transport
-    result = client.execute(query, variable_values={"id": "tt0944947"})
+    result = client.execute(query, variable_values={"id": id})
     # Print the result
     printTitleResult(result)
     
@@ -182,7 +256,7 @@ def getPerson(id):
     query = gql(personById)
 
     # Execute the query on the transport
-    result = client.execute(query, variable_values={"id": "nm0908094"})
+    result = client.execute(query, variable_values={"id": id})
     # Print the result
     printPersonResult(result)
     
@@ -206,20 +280,45 @@ def printPersonResult(result):
     for known in result["name"]["known_for"]:
         print("Known For: ", known["primary_title"])
     
-def main(name: List[str], person: Annotated[bool, typer.Option("--person", "-p")] = False, title: Annotated[bool, typer.Option("--title", "-t")] = True):
+def main(name: List[str], search: Annotated[bool, typer.Option("--search", "-s")] = False, person: Annotated[bool, typer.Option("--person", "-p")] = False, title: Annotated[bool, typer.Option("--title", "-t")] = False):
     name = " ".join(name)
-    print(f"Searching: {name}")
+    # Check if the name is empty
+    if not name:
+        print("Name is empty")
+        return
+    print("Searching for:", name)
     
-    # if (person):
-    #     # Search for a person
-    #     print("Searching for a person...")
-    #     # searchPerson(name)
-    # elif (title):
-    #     # Search for a title
-    #     print("Searching for a title...")
-    #     getTitle(name)
+    # print("search: ", search)
+    # print("person: ", person)
+    # print("title: ", title)
+    
+    # Check if the search is id
+    if re.match(r"^(tt|nm)\d+$", name):
+        print("Searching by id:", name)
+        getTitleOrPerson(name)
+        return
         
-    searchByName(name)
+    personOrTitle = ''
+    if title:
+        personOrTitle = 'tt'
+    elif person:
+        personOrTitle = 'nm'
+    # print("personOrTitle: ", personOrTitle)
+    try:
+        # Search for the title or person
+        id = searchByName(name, search, personOrTitle)
+    except Exception as e:
+        print(e)
+        return
+    
+    if id is None:
+        return
+    
+    print("Selected id: ", id)
+    
+    # Get the title or person details
+    getTitleOrPerson(id)
+    
 
 if __name__ == "__main__":
     typer.run(main)
