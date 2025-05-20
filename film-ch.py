@@ -39,67 +39,47 @@ titleById = """
             runtime_minutes
             plot
             rating {
-            aggregate_rating
-            votes_count
+                aggregate_rating
+                votes_count
             }
             genres
-            posters {
-            url
-            width
-            height
-            }
             certificates {
-            country {
+                country {
+                    code
+                    name
+                }
+                rating
+            }
+            spoken_languages {
                 code
                 name
             }
-            rating
-            }
-            spoken_languages {
-            code
-            name
-            }
             origin_countries {
-            code
-            name
+                code
+                name
             }
             critic_review {
-            score
-            review_count
+                score
+                review_count
             }
             directors: credits(first: 5, categories: ["director"]) {
-            name {
-                id
-                display_name
-                avatars {
-                url
-                width
-                height
+                name {
+                    id
+                    display_name
                 }
-            }
             }
             writers: credits(first: 5, categories: ["writer"]) {
-            name {
-                id
-                display_name
-                avatars {
-                url
-                width
-                height
+                name {
+                    id
+                    display_name
                 }
-            }
             }
             casts: credits(first: 5, categories: ["actor", "actress"]) {
-            name {
-                id
-                display_name
-                avatars {
-                url
-                width
-                height
+                name {
+                    id
+                    display_name
                 }
-            }
-            characters
+                characters
             }
         }
     }
@@ -207,8 +187,6 @@ def getTitleOrPerson(id):
         # Get the person details
         getPerson(id)
     
-
-# @app.command()
 def getTitle(id):
     # Provide a GraphQL query
     query = gql(titleById)
@@ -221,31 +199,104 @@ def getTitle(id):
 def printTitleResult(result):
     # Print the result
     # print(result)
+
+    data = result["title"]
+    id = data["id"]
+    title = data["primary_title"]
+    original_title = data["original_title"]
+    start_year = data["start_year"]
+    end_year = data["end_year"]
+    runtime_minutes = data["runtime_minutes"]
+    is_adult = data["is_adult"]
+    type = data["type"]
+    plot = data["plot"]
+    rating = data["rating"]
+    aggregate_rating = rating["aggregate_rating"]
+    votes_count = rating["votes_count"]
+    genres = data["genres"]
+    certificates = data["certificates"]
+    spoken_languages = data["spoken_languages"]
+    origin_countries = data["origin_countries"]
+    critic_review = data["critic_review"]
+    directors = data["directors"]
+    writers = data["writers"]
+    casts = data["casts"]
     
-    # Print the title
-    print("Title: ", result["title"]["primary_title"])
-    # Print the plot
-    print("Plot: ", result["title"]["plot"])
-    # Print the rating
-    votes = result["title"]["rating"]["votes_count"]
-    print("Rating: ", result["title"]["rating"]["aggregate_rating"], f"({votes} votes)")
-    # Print the genres
-    print("Genres: ", ", ".join(result["title"]["genres"]))
-    # Print the certificates
-    for certificate in result["title"]["certificates"]:
-        print("Certificate: ", certificate["country"]["name"], certificate["rating"])
-    # Print the spoken languages
-    for language in result["title"]["spoken_languages"]:
-        print("Language: ", language["name"])
-    # Print the origin countries
-    for country in result["title"]["origin_countries"]:
-        print("Country: ", country["name"])
-    # Print the critic review
-    if result["title"]["critic_review"] is not None:
-        # Print the critic review
-        print("Critic Review: ", result["title"]["critic_review"]["score"], result["title"]["critic_review"]["review_count"])
-    
-# @app.command()
+    str_to_print = f"{title} ({id})"
+    if original_title:
+        str_to_print += f", {original_title}"
+    str_to_print += "\n"
+    if type:
+        str_to_print += f"Type: {type}"
+        str_to_print += "\n"
+    if start_year:
+        str_to_print += f"Released in {start_year}"
+    if end_year:
+        str_to_print += f" - {end_year}"
+    if start_year or end_year:
+        str_to_print += "\n"
+    if runtime_minutes:
+        str_to_print += f"Runtime: {runtime_minutes} minutes"
+        str_to_print += "\n"
+    if is_adult != None:
+        str_to_print += f"Adult: {is_adult}"
+        str_to_print += "\n"
+    if plot:
+        str_to_print += f"Plot: {plot}"
+        str_to_print += "\n"
+    if rating:
+        str_to_print += f"Rating: {aggregate_rating} ({votes_count} votes)"
+        str_to_print += "\n"
+    if genres:
+        str_to_print += f"Genres: {', '.join(genres)}"
+        str_to_print += "\n"
+    if certificates:
+        str_to_print += f"Certificates: ({len(certificates)}) \n"
+        for certificate in certificates:
+            country = certificate["country"]
+            country_name = country["name"]
+            rating = certificate["rating"]
+            str_to_print += " "*4 + f"{country_name}: {rating}\n"
+    if spoken_languages:
+        str_to_print += f"Spoken languages: ({len(spoken_languages)}) \n"
+        for language in spoken_languages:
+            language_name = language["name"]
+            str_to_print += " "*4 + f"{language_name}"
+        str_to_print += "\n"
+    if origin_countries:
+        str_to_print += f"Origin countries: ({len(origin_countries)}) \n"
+        for country in origin_countries:
+            country_name = country["name"]
+            str_to_print += " "*4 + f"{country_name}\n"
+    if critic_review:
+        str_to_print += f"Critic review: {critic_review['score']} ({critic_review['review_count']} reviews)"
+        str_to_print += "\n"
+    if directors:
+        str_to_print += f"Directors: ({len(directors)}) \n"
+        for director in directors:
+            director_name = director["name"]["display_name"]
+            director_id = director["name"]["id"]
+            str_to_print += " "*4 + f"{director_name} ({director_id})\n"
+    if writers:
+        str_to_print += f"Writers: ({len(writers)}) \n"
+        for writer in writers:
+            writer_name = writer["name"]["display_name"]
+            writer_id = writer["name"]["id"]
+            str_to_print += " "*4 + f"{writer_name} ({writer_id})\n"
+    if casts:
+        str_to_print += f"Casts: ({len(casts)}) \n"
+        for cast in casts:
+            cast_name = cast["name"]["display_name"]
+            cast_id = cast["name"]["id"]
+            characters = cast["characters"]
+            str_to_print += " "*4 + f"{cast_name} ({cast_id})"
+            if isinstance(characters, list):
+                str_to_print += f", {', '.join(characters)}"
+            str_to_print += "\n"
+
+    print("-" * 20)
+    print(str_to_print)
+
 def getPerson(id):
     # Provide a GraphQL query
     query = gql(personById)
@@ -339,7 +390,6 @@ def main(name: List[str], search: Annotated[bool, typer.Option("--search", "-s")
     # Get the title or person details
     getTitleOrPerson(id)
     
-
 if __name__ == "__main__":
     typer.run(main)
     
