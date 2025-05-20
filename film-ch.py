@@ -110,11 +110,6 @@ personById = """
         name(id: $id) {
             id
             display_name
-            avatars {
-                url
-                width
-                height
-            }
             alternate_names
             birth_year
             birth_location
@@ -263,22 +258,47 @@ def getPerson(id):
 def printPersonResult(result):
     # Print the result
     # print(result)
+
+    data = result["name"]
+    id = data["id"]
+    name = data["display_name"]
+    alt_name = data["alternate_names"]
+    birth_year = data["birth_year"]
+    birth_location = data["birth_location"]
+    death_year = data["death_year"]
+    death_location = data["death_location"]
+    dead_reason = data["dead_reason"]
+    known_for = data["known_for"]
+
+    str_to_print = f"{name} ({id})"
+    if alt_name:
+        str_to_print += f", also known as ({', '.join(alt_name)})"
+    str_to_print += "\n"
+
+    if birth_year:
+        str_to_print += f"Born in {birth_year}"
+    if birth_location:
+        str_to_print += f", {birth_location}"
+    if birth_year or birth_location:
+        str_to_print += "\n"
+
+    if death_year:
+        str_to_print += f"Dead in {death_year}"
+    if death_location:
+        str_to_print += f", {death_location}"
+    if dead_reason:
+        str_to_print += f", {dead_reason}"
+    if death_year or death_location or dead_reason:
+        str_to_print += "\n"
     
-    # Print the name
-    print("Name: ", result["name"]["display_name"])
-    # Print the birth year
-    print("Birth Year: ", result["name"]["birth_year"])
-    # Print the birth location
-    print("Birth Location: ", result["name"]["birth_location"])
-    # Print the death year
-    print("Death Year: ", result["name"]["death_year"])
-    # Print the death location
-    print("Death Location: ", result["name"]["death_location"])
-    # Print the dead reason
-    print("Dead Reason: ", result["name"]["dead_reason"])
-    # Print the known for
-    for known in result["name"]["known_for"]:
-        print("Known For: ", known["primary_title"])
+    if known_for:
+        str_to_print += f"Known for ({len(known_for)}): \n"
+        for known in known_for:
+            str_to_print += " "*4 + f"{known['primary_title']} ({known['id']}), \n"
+        str_to_print = str_to_print[:-3]
+
+    print("-" * 20)
+    print(str_to_print)
     
 def main(name: List[str], search: Annotated[bool, typer.Option("--search", "-s")] = False, person: Annotated[bool, typer.Option("--person", "-p")] = False, title: Annotated[bool, typer.Option("--title", "-t")] = False):
     name = " ".join(name)
